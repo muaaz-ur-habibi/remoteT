@@ -8,6 +8,20 @@ import (
 	"os/exec"
 )
 
+func getServerPassword() string {
+	f, err := os.Open("server_pwd.txt")
+	if err != nil {
+		fmt.Println("Error opening server pwd file")
+	}
+
+	hash := make([]byte, 2048)
+	n, err := f.Read(hash)
+
+	hashstr := string(hash[:n])
+
+	return hashstr
+}
+
 func clientDC(conn net.Conn) {
 	conn.Close()
 	fmt.Println("Client " + conn.RemoteAddr().String() + " disconnected")
@@ -30,6 +44,24 @@ func handle(conn net.Conn) {
 	cmd.Wait()
 }
 
+func checkClientAllowed(conn net.Conn) {
+	pwd := make([]byte, 1024)
+
+	for i := 0; i < 3; i++ {
+		n, err := conn.Read(pwd)
+		if err != nil {
+			fmt.Println("Error reading pwd from client")
+		}
+
+		if string(pwd[:n]) == getServerPassword() {
+			conn.Write([]byte("allowed"))
+			break
+		} else {
+			conn.Write([]byte("not allowed"))
+		}
+	}
+}
+
 func main() {
 	fmt.Println("Starting server")
 
@@ -46,6 +78,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
+
+		checkClientAllowed(conn)
 
 		fmt.Println("Connected with client " + conn.RemoteAddr().String())
 
